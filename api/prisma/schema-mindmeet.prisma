@@ -1,0 +1,426 @@
+// MindMeet Database Schema
+// Updated with subscription model and language interpretation features
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management with Subscription
+model User {
+  id                String   @id @default(cuid())
+  email             String?  @unique
+  phone             String?  @unique
+  name              String
+  avatar            String?
+  password          String
+  emailVerified     Boolean  @default(false)
+  phoneVerified     Boolean  @default(false)
+  preferredLanguage String   @default("en")
+  timezone          String   @default("UTC")
+  
+  // Subscription fields
+  subscriptionId    String?  @unique
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id])
+  trialStartedAt    DateTime?
+  trialEndsAt       DateTime?
+  isTrialActive     Boolean  @default(false)
+  
+  // Relationships
+  hostedMeetings    Meeting[] @relation("MeetingHost")
+  participations    Participant[]
+  sentInvitations   MeetingInvitation[] @relation("InvitationSender")
+  receivedInvitations MeetingInvitation[] @relation("InvitationReceiver")
+  paymentMethods    PaymentMethod[]
+  usageAnalytics    UsageAnalytics[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("users")
+}
+
+// Subscription Management
+model Subscription {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  planId            String
+  plan              SubscriptionPlan @relation(fields: [planId], references: [id])
+  status            SubscriptionStatus @default(TRIAL)
+  
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean  @default(false)
+  canceledAt         DateTime?
+  
+  // Payment
+  stripeSubscriptionId String? @unique
+  stripeCustomerId     String?
+  
+  // Usage limits
+  monthlyMeetingMinutes Int @default(0)
+  monthlyParticipants   Int @default(0)
+  monthlyTranslations   Int @default(0)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("subscriptions")
+}
+
+model SubscriptionPlan {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String?
+  price             Decimal  @db.Decimal(10, 2)
+  currency          String   @default("USD")
+  interval          BillingInterval @default(MONTHLY)
+  
+  // Feature limits
+  maxParticipants   Int      @default(10)
+  maxMeetingDuration Int     @default(60) // minutes
+  maxMonthlyMinutes Int      @default(1000)
+  maxTranslations   Int      @default(100)
+  
+  // Features
+  hasAITranscription Boolean @default(true)
+  hasLanguageTranslation Boolean @default(false)
+  hasAdvancedAnalytics Boolean @default(false)
+  hasCustomBranding Boolean @default(false)
+  hasPrioritySupport Boolean @default(false)
+  
+  subscriptions     Subscription[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("subscription_plans")
+}
+
+model PaymentMethod {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type              PaymentType
+  isDefault         Boolean  @default(false)
+  
+  // Card details (encrypted)
+  last4             String?
+  brand             String?
+  expiryMonth       Int?
+  expiryYear        Int?
+  
+  // Bank details (encrypted)
+  bankName          String?
+  accountLast4      String?
+  
+  stripePaymentMethodId String? @unique
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("payment_methods")
+}
+
+// Meeting Management
+model Meeting {
+  id                String   @id @default(cuid())
+  title             String
+  description       String?
+  roomCode          String   @unique
+  status            MeetingStatus @default(SCHEDULED)
+  
+  hostId            String
+  host              User     @relation("MeetingHost", fields: [hostId], references: [id])
+  
+  // Meeting settings
+  notesEnabled      Boolean  @default(true)
+  translationEnabled Boolean @default(false)
+  recordingEnabled  Boolean  @default(false)
+  maxParticipants   Int      @default(50)
+  
+  // Language settings
+  primaryLanguage   String   @default("en")
+  supportedLanguages String[] @default(["en"])
+  
+  // Timing
+  scheduledAt       DateTime?
+  startedAt         DateTime?
+  endedAt           DateTime?
+  duration          Int?     // minutes
+  
+  // Relationships
+  participants      Participant[]
+  invitations       MeetingInvitation[]
+  transcripts       Transcript[]
+  translations      Translation[]
+  meetingNotes      MeetingNotes?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("meetings")
+}
+
+model Participant {
+  id                String   @id @default(cuid())
+  meetingId         String
+  meeting           Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id])
+  
+  // Guest participant info
+  guestName         String?
+  guestEmail        String?
+  
+  role              ParticipantRole @default(PARTICIPANT)
+  preferredLanguage String   @default("en")
+  
+  joinedAt          DateTime?
+  leftAt            DateTime?
+  duration          Int?     // minutes
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([meetingId, userId])
+  @@map("participants")
+}
+
+// Language Translation
+model Translation {
+  id                String   @id @default(cuid())
+  meetingId         String
+  meeting           Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  
+  originalText      String
+  translatedText    String
+  sourceLanguage    String
+  targetLanguage    String
+  confidence        Float    @default(0.0)
+  
+  speakerId         String?
+  timestamp         DateTime @default(now())
+  
+  createdAt         DateTime @default(now())
+
+  @@map("translations")
+}
+
+// Enhanced Transcript with Language Support
+model Transcript {
+  id                String   @id @default(cuid())
+  meetingId         String
+  meeting           Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  
+  content           String
+  speakerId         String?
+  speakerName       String?
+  language          String   @default("en")
+  confidence        Float    @default(0.0)
+  
+  timestamp         DateTime @default(now())
+  duration          Float?   // seconds
+  
+  // Translation references
+  translations      Translation[]
+  
+  createdAt         DateTime @default(now())
+
+  @@map("transcripts")
+}
+
+// Meeting Notes (unchanged but enhanced)
+model MeetingNotes {
+  id                String   @id @default(cuid())
+  meetingId         String   @unique
+  meeting           Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  
+  summary           String?
+  language          String   @default("en")
+  
+  themes            Theme[]
+  importantNotes    ImportantNote[]
+  decisions         Decision[]
+  actionItems       ActionItem[]
+  
+  processedAt       DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("meeting_notes")
+}
+
+model Theme {
+  id                String   @id @default(cuid())
+  meetingNotesId    String
+  meetingNotes      MeetingNotes @relation(fields: [meetingNotesId], references: [id], onDelete: Cascade)
+  
+  title             String
+  description       String?
+  confidence        Float    @default(0.0)
+  
+  createdAt         DateTime @default(now())
+
+  @@map("themes")
+}
+
+model ImportantNote {
+  id                String   @id @default(cuid())
+  meetingNotesId    String
+  meetingNotes      MeetingNotes @relation(fields: [meetingNotesId], references: [id], onDelete: Cascade)
+  
+  content           String
+  speakerId         String?
+  timestamp         DateTime?
+  importance        Float    @default(0.0)
+  
+  createdAt         DateTime @default(now())
+
+  @@map("important_notes")
+}
+
+model Decision {
+  id                String   @id @default(cuid())
+  meetingNotesId    String
+  meetingNotes      MeetingNotes @relation(fields: [meetingNotesId], references: [id], onDelete: Cascade)
+  
+  title             String
+  description       String
+  decidedBySpeakerId String?
+  timestamp         DateTime?
+  
+  createdAt         DateTime @default(now())
+
+  @@map("decisions")
+}
+
+model ActionItem {
+  id                String   @id @default(cuid())
+  meetingNotesId    String
+  meetingNotes      MeetingNotes @relation(fields: [meetingNotesId], references: [id], onDelete: Cascade)
+  
+  title             String
+  description       String
+  assignedToSpeakerId String?
+  assignedToName    String?
+  dueDate           DateTime?
+  status            ActionItemStatus @default(PENDING)
+  priority          Priority @default(MEDIUM)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("action_items")
+}
+
+// Meeting Invitations (enhanced)
+model MeetingInvitation {
+  id                String   @id @default(cuid())
+  meetingId         String
+  meeting           Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  
+  senderId          String
+  sender            User     @relation("InvitationSender", fields: [senderId], references: [id])
+  
+  receiverId        String?
+  receiver          User?    @relation("InvitationReceiver", fields: [receiverId], references: [id])
+  
+  // Guest invitation
+  guestEmail        String?
+  guestPhone        String?
+  guestName         String?
+  
+  status            InvitationStatus @default(PENDING)
+  message           String?
+  preferredLanguage String   @default("en")
+  
+  sentAt            DateTime @default(now())
+  respondedAt       DateTime?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("meeting_invitations")
+}
+
+// Usage Analytics
+model UsageAnalytics {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  date              DateTime @db.Date
+  meetingMinutes    Int      @default(0)
+  participantCount  Int      @default(0)
+  translationCount  Int      @default(0)
+  transcriptionMinutes Int   @default(0)
+  
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, date])
+  @@map("usage_analytics")
+}
+
+// Enums
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum PaymentType {
+  CARD
+  BANK_ACCOUNT
+  PAYPAL
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum ParticipantRole {
+  HOST
+  CO_HOST
+  PARTICIPANT
+  OBSERVER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum ActionItemStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}

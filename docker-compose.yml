@@ -1,0 +1,237 @@
+# Mitopia Backend Services - Docker Compose
+# For local development and testing
+
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: mitopia-postgres
+    environment:
+      POSTGRES_DB: mitopia_dev
+      POSTGRES_USER: mitopia_user
+      POSTGRES_PASSWORD: mitopia_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mitopia_user -d mitopia_dev"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Cache
+  redis:
+    image: redis:7-alpine
+    container_name: mitopia-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Message Queue
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: mitopia-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: mitopia
+      RABBITMQ_DEFAULT_PASS: mitopia_dev_password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # API Service
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: mitopia-api
+    ports:
+      - "8001:8001"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://mitopia_user:mitopia_dev_password@postgres:5432/mitopia_dev
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://mitopia:mitopia_dev_password@rabbitmq:5672
+      JWT_SECRET: dev_jwt_secret_change_in_production
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      FRONTEND_URL: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Signaling Service
+  signaling:
+    build:
+      context: ./signaling
+      dockerfile: Dockerfile
+    container_name: mitopia-signaling
+    ports:
+      - "8002:8002"
+    environment:
+      NODE_ENV: development
+      REDIS_URL: redis://redis:6379
+      API_SERVICE_URL: http://api:8001
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    volumes:
+      - ./signaling:/app
+      - /app/node_modules
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Billing Service
+  billing:
+    build:
+      context: ./billing
+      dockerfile: Dockerfile
+    container_name: mitopia-billing
+    ports:
+      - "8005:8005"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://mitopia_user:mitopia_dev_password@postgres:5432/mitopia_dev
+      REDIS_URL: redis://redis:6379
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./billing:/app
+      - /app/node_modules
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # STT Service
+  stt:
+    build:
+      context: ./stt
+      dockerfile: Dockerfile
+    container_name: mitopia-stt
+    ports:
+      - "8003:8003"
+    environment:
+      REDIS_URL: redis://redis:6379
+      API_SERVICE_URL: http://api:8001
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    volumes:
+      - ./stt:/app
+      - stt_models:/app/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Translation Service
+  translation:
+    build:
+      context: ./translation
+      dockerfile: Dockerfile
+    container_name: mitopia-translation
+    ports:
+      - "8004:8004"
+    environment:
+      REDIS_URL: redis://redis:6379
+      API_SERVICE_URL: http://api:8001
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    volumes:
+      - ./translation:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Notes Service
+  notes:
+    build:
+      context: ./notes
+      dockerfile: Dockerfile
+    container_name: mitopia-notes
+    ports:
+      - "8006:8006"
+    environment:
+      REDIS_URL: redis://redis:6379
+      API_SERVICE_URL: http://api:8001
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    volumes:
+      - ./notes:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  stt_models:
+    driver: local
+
+networks:
+  default:
+    name: mitopia-backend-network

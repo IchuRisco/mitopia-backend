@@ -1,0 +1,818 @@
+
+
+openapi: 3.0.3
+info:
+  title: TalkFlow API
+  description: API for TalkFlow, a smart video/audio call application with AI-powered notes.
+  version: 1.0.0
+  contact:
+    name: TalkFlow Support
+    email: support@talkflow.example.com
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development server
+  - url: https://api.talkflow.example.com/api/v1
+    description: Production server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+    description: User authentication and authorization
+  - name: Meetings
+    description: Operations related to meetings
+  - name: Participants
+    description: Operations related to meeting participants
+  - name: Notes
+    description: Operations related to meeting notes and summaries
+  - name: Exports
+    description: Operations related to exporting meeting notes
+
+
+
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        name:
+          type: string
+        avatar:
+          type: string
+          nullable: true
+        isVerified:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Meeting:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        hostId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/MeetingStatus'
+        notesEnabled:
+          type: boolean
+        roomCode:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Participant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        meetingId:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/ParticipantRole'
+        joinedAt:
+          type: string
+          format: date-time
+          nullable: true
+        leftAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Transcript:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meetingId:
+          type: string
+          format: uuid
+        speakerId:
+          type: string
+          format: uuid
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        confidence:
+          type: number
+          format: float
+
+    MeetingNotes:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meetingId:
+          type: string
+          format: uuid
+        summary:
+          type: string
+        themes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Theme'
+        importantNotes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportantNote'
+        decisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Decision'
+        actionItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionItem'
+
+    Theme:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        confidence:
+          type: number
+          format: float
+
+    ImportantNote:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        importance:
+          type: number
+          format: float
+
+    Decision:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        decidedById:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    ActionItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        assignedToId:
+          type: string
+          format: uuid
+          nullable: true
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ActionItemStatus'
+
+    MeetingStatus:
+      type: string
+      enum: [SCHEDULED, ACTIVE, ENDED, CANCELLED]
+
+    ParticipantRole:
+      type: string
+      enum: [HOST, PARTICIPANT]
+
+    ActionItemStatus:
+      type: string
+      enum: [PENDING, IN_PROGRESS, COMPLETED, CANCELLED]
+
+    MeetingInvitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meetingId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/InvitationStatus'
+        invitedAt:
+          type: string
+          format: date-time
+        respondedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    InvitationStatus:
+      type: string
+      enum: [PENDING, ACCEPTED, DECLINED, EXPIRED]
+
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  nullable: true
+                phone:
+                  type: string
+                  nullable: true
+                name:
+                  type: string
+                password:
+                  type: string
+                  format: password
+              required: [name, password]
+              anyOf:
+                - required: [email]
+                - required: [phone]
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Log in a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  nullable: true
+                phone:
+                  type: string
+                  nullable: true
+                password:
+                  type: string
+                  format: password
+              required: [password]
+              anyOf:
+                - required: [email]
+                - required: [phone]
+      responses:
+        '200':
+          description: User logged in successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+
+  /auth/refresh:
+    post:
+      tags:
+        - Auth
+      summary: Refresh an access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Access token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+
+  /auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get the current user's profile
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+
+
+
+  /meetings:
+    get:
+      tags:
+        - Meetings
+      summary: Get a list of meetings for the current user
+      responses:
+        '200':
+          description: A list of meetings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Meeting'
+    post:
+      tags:
+        - Meetings
+      summary: Create a new meeting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                notesEnabled:
+                  type: boolean
+      responses:
+        '201':
+          description: Meeting created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+
+  /meetings/{meetingId}:
+    get:
+      tags:
+        - Meetings
+      summary: Get a specific meeting
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The requested meeting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+    patch:
+      tags:
+        - Meetings
+      summary: Update a specific meeting
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                notesEnabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Meeting updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+    delete:
+      tags:
+        - Meetings
+      summary: Delete a specific meeting
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Meeting deleted successfully
+
+  /meetings/{meetingId}/join:
+    post:
+      tags:
+        - Meetings
+      summary: Join a specific meeting
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Joined meeting successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Participant'
+
+  /meetings/{meetingId}/leave:
+    post:
+      tags:
+        - Meetings
+      summary: Leave a specific meeting
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Left meeting successfully
+
+  /meetings/{meetingId}/start:
+    post:
+      tags:
+        - Meetings
+      summary: Start a specific meeting
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Meeting started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+
+  /meetings/{meetingId}/end:
+    post:
+      tags:
+        - Meetings
+      summary: End a specific meeting
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Meeting ended successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+
+  /meetings/{meetingId}/notes:
+    get:
+      tags:
+        - Notes
+      summary: Get the notes for a specific meeting
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The meeting notes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingNotes'
+
+  /meetings/{meetingId}/transcripts:
+    get:
+      tags:
+        - Notes
+      summary: Get the transcripts for a specific meeting
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: A list of transcripts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transcript'
+
+  /meetings/{meetingId}/exports:
+    post:
+      tags:
+        - Exports
+      summary: Export the notes for a specific meeting
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format:
+                  type: string
+                  enum: [PDF, MARKDOWN, JSON]
+                destination:
+                  type: string
+                  enum: [EMAIL, GOOGLE_DOCS, NOTION, SLACK, DOWNLOAD]
+      responses:
+        '202':
+          description: Export job started successfully
+
+
+  /meetings/{meetingId}/invite:
+    post:
+      tags:
+        - Meetings
+      summary: Invite users to a meeting via email or phone
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invitations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                        format: email
+                        nullable: true
+                      phone:
+                        type: string
+                        nullable: true
+                    anyOf:
+                      - required: [email]
+                      - required: [phone]
+      responses:
+        '201':
+          description: Invitations sent successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeetingInvitation'
+
+  /meetings/join/{roomCode}:
+    post:
+      tags:
+        - Meetings
+      summary: Join a meeting using room code
+      parameters:
+        - name: roomCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Joined meeting successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meeting:
+                    $ref: '#/components/schemas/Meeting'
+                  participant:
+                    $ref: '#/components/schemas/Participant'
+
+  /invitations/{invitationId}/respond:
+    post:
+      tags:
+        - Meetings
+      summary: Respond to a meeting invitation
+      parameters:
+        - name: invitationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                response:
+                  type: string
+                  enum: [ACCEPTED, DECLINED]
+      responses:
+        '200':
+          description: Invitation response recorded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingInvitation'
+
+  /auth/verify:
+    post:
+      tags:
+        - Auth
+      summary: Verify email or phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  nullable: true
+                phone:
+                  type: string
+                  nullable: true
+                verificationCode:
+                  type: string
+              required: [verificationCode]
+              anyOf:
+                - required: [email]
+                - required: [phone]
+      responses:
+        '200':
+          description: Verification successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /auth/send-verification:
+    post:
+      tags:
+        - Auth
+      summary: Send verification code via email or SMS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  nullable: true
+                phone:
+                  type: string
+                  nullable: true
+              anyOf:
+                - required: [email]
+                - required: [phone]
+      responses:
+        '200':
+          description: Verification code sent successfully

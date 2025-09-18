@@ -1,0 +1,74 @@
+{
+  "name": "mitopia-backend",
+  "version": "1.0.0",
+  "description": "Backend microservices for Mitopia - Your Meeting Utopia",
+  "private": true,
+  "workspaces": [
+    "api",
+    "signaling", 
+    "billing",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:signaling\" \"npm run dev:billing\"",
+    "dev:api": "cd api && npm run dev",
+    "dev:signaling": "cd signaling && npm run dev", 
+    "dev:billing": "cd billing && npm run dev",
+    "build": "npm run build:shared && npm run build:api && npm run build:signaling && npm run build:billing",
+    "build:shared": "cd packages/shared && npm run build",
+    "build:api": "cd api && npm run build",
+    "build:signaling": "cd signaling && npm run build",
+    "build:billing": "cd billing && npm run build",
+    "test": "npm run test:api && npm run test:signaling && npm run test:billing",
+    "test:api": "cd api && npm run test",
+    "test:signaling": "cd signaling && npm run test",
+    "test:billing": "cd billing && npm run test",
+    "lint": "npm run lint:api && npm run lint:signaling && npm run lint:billing",
+    "lint:api": "cd api && npm run lint",
+    "lint:signaling": "cd signaling && npm run lint", 
+    "lint:billing": "cd billing && npm run lint",
+    "clean": "rm -rf */dist */node_modules node_modules",
+    "install:all": "npm install && npm run install:python",
+    "install:python": "cd stt && pip install -r requirements.txt && cd ../translation && pip install -r requirements.txt && cd ../notes && pip install -r requirements.txt",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "migrate": "cd api && npx prisma migrate deploy",
+    "db:seed": "cd api && npx prisma db seed",
+    "db:reset": "cd api && npx prisma migrate reset",
+    "health": "curl -f http://localhost:8001/health && curl -f http://localhost:8002/health && curl -f http://localhost:8005/health"
+  },
+  "keywords": [
+    "mitopia",
+    "video-calls",
+    "ai-transcription", 
+    "real-time-translation",
+    "meeting-notes",
+    "webrtc",
+    "microservices",
+    "nodejs",
+    "python",
+    "railway"
+  ],
+  "author": "IchuRisco",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IchuRisco/mitopia-backend.git"
+  },
+  "bugs": {
+    "url": "https://github.com/IchuRisco/mitopia-backend/issues"
+  },
+  "homepage": "https://github.com/IchuRisco/mitopia-backend#readme",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "@types/node": "^20.8.0",
+    "typescript": "^5.2.2",
+    "eslint": "^8.51.0",
+    "prettier": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

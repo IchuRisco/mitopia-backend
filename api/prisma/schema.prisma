@@ -1,0 +1,193 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = env("DATABASE_PROVIDER") // "sqlite" for local, "postgresql" for production
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id          String   @id @default(uuid())
+  email       String?  @unique
+  phone       String?  @unique
+  name        String
+  password    String
+  avatar      String?
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hostedMeetings   Meeting[]     @relation("HostToMeeting")
+  participatedIn   Participant[]
+  invitations      MeetingInvitation[]
+
+  // Note: At least one of email or phone must be provided (enforced in application logic)
+}
+
+// Meeting Model
+model Meeting {
+  id             String        @id @default(uuid())
+  title          String
+  description    String?
+  hostId         String
+  status         MeetingStatus @default(SCHEDULED)
+  notesEnabled   Boolean       @default(false)
+  roomCode       String        @unique @default(cuid())
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  host           User          @relation("HostToMeeting", fields: [hostId], references: [id])
+  participants   Participant[]
+  transcripts    Transcript[]
+  notes          MeetingNotes? 
+  invitations    MeetingInvitation[]
+}
+
+// Meeting Invitation Model
+model MeetingInvitation {
+  id          String            @id @default(uuid())
+  meetingId   String
+  userId      String?           // If user exists in system
+  email       String?           // For email invitations
+  phone       String?           // For phone invitations
+  status      InvitationStatus  @default(PENDING)
+  invitedAt   DateTime          @default(now())
+  respondedAt DateTime?
+
+  meeting     Meeting           @relation(fields: [meetingId], references: [id])
+  user        User?             @relation(fields: [userId], references: [id])
+
+  @@unique([meetingId, email])
+  @@unique([meetingId, phone])
+  @@unique([meetingId, userId])
+}
+
+// Participant Model
+model Participant {
+  id        String          @id @default(uuid())
+  userId    String
+  meetingId String
+  role      ParticipantRole @default(PARTICIPANT)
+  joinedAt  DateTime?       @default(now())
+  leftAt    DateTime?
+
+  user      User            @relation(fields: [userId], references: [id])
+  meeting   Meeting         @relation(fields: [meetingId], references: [id])
+  spokenIn  Transcript[]
+  decided   Decision[]
+  assigned  ActionItem[]
+
+  @@unique([userId, meetingId])
+}
+
+// Transcript Model
+model Transcript {
+  id          String   @id @default(uuid())
+  meetingId   String
+  speakerId   String
+  content     String
+  timestamp   DateTime
+  confidence  Float
+  createdAt   DateTime @default(now())
+
+  meeting     Meeting     @relation(fields: [meetingId], references: [id])
+  speaker     Participant @relation(fields: [speakerId], references: [id])
+}
+
+// Meeting Notes Model
+model MeetingNotes {
+  id              String           @id @default(uuid())
+  meetingId       String           @unique
+  summary         String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  meeting         Meeting          @relation(fields: [meetingId], references: [id])
+  themes          Theme[]
+  importantNotes  ImportantNote[]
+  decisions       Decision[]
+  actionItems     ActionItem[]
+}
+
+// Theme Model
+model Theme {
+  id          String  @id @default(uuid())
+  notesId     String
+  title       String
+  description String
+  confidence  Float
+
+  notes       MeetingNotes @relation(fields: [notesId], references: [id])
+}
+
+// Important Note Model
+model ImportantNote {
+  id          String @id @default(uuid())
+  notesId     String
+  content     String
+  importance  Float
+
+  notes       MeetingNotes @relation(fields: [notesId], references: [id])
+}
+
+// Decision Model
+model Decision {
+  id          String    @id @default(uuid())
+  notesId     String
+  title       String
+  description String
+  decidedById String
+  timestamp   DateTime
+
+  notes       MeetingNotes @relation(fields: [notesId], references: [id])
+  decidedBy   Participant  @relation(fields: [decidedById], references: [id])
+}
+
+// Action Item Model
+model ActionItem {
+  id          String           @id @default(uuid())
+  notesId     String
+  title       String
+  description String
+  assignedToId String?
+  dueDate     DateTime?
+  status      ActionItemStatus @default(PENDING)
+
+  notes       MeetingNotes @relation(fields: [notesId], references: [id])
+  assignedTo  Participant? @relation(fields: [assignedToId], references: [id])
+}
+
+// Enums
+enum MeetingStatus {
+  SCHEDULED
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum ParticipantRole {
+  HOST
+  PARTICIPANT
+}
+
+enum ActionItemStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+

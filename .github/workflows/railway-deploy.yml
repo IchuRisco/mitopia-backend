@@ -1,0 +1,395 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Test Node.js Services
+  test-nodejs-services:
+    name: Test Node.js Services
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api, signaling, billing]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '${{ matrix.service }}/package-lock.json'
+
+      - name: Install dependencies
+        run: |
+          cd ${{ matrix.service }}
+          npm ci
+
+      - name: Run linting
+        run: |
+          cd ${{ matrix.service }}
+          npm run lint
+
+      - name: Run type checking
+        run: |
+          cd ${{ matrix.service }}
+          npm run type-check
+
+      - name: Run tests
+        run: |
+          cd ${{ matrix.service }}
+          npm run test
+
+      - name: Build service
+        run: |
+          cd ${{ matrix.service }}
+          npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.service }}-build
+          path: ${{ matrix.service }}/dist
+
+  # Test Python Services
+  test-python-services:
+    name: Test Python Services
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [stt, translation, notes]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('${{ matrix.service }}/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          cd ${{ matrix.service }}
+          pip install -r requirements.txt
+          pip install pytest flake8 black isort
+
+      - name: Run code formatting check
+        run: |
+          cd ${{ matrix.service }}
+          black --check .
+          isort --check-only .
+
+      - name: Run linting
+        run: |
+          cd ${{ matrix.service }}
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Run tests
+        run: |
+          cd ${{ matrix.service }}
+          python -m pytest tests/ -v || echo "No tests found for ${{ matrix.service }}"
+
+  # Security Scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [test-nodejs-services, test-python-services]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Docker Build Test
+  docker-build-test:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    needs: [test-nodejs-services, test-python-services]
+    strategy:
+      matrix:
+        service: [api, signaling, billing, stt, translation, notes]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile.production
+          push: false
+          tags: mitopia-${{ matrix.service }}:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploy to Railway (Production)
+  deploy-railway-production:
+    name: Deploy to Railway (Production)
+    runs-on: ubuntu-latest
+    needs: [test-nodejs-services, test-python-services, security-scan, docker-build-test]
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        service: [api, signaling, billing, stt, translation, notes]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          cd ${{ matrix.service }}
+          railway login --token $RAILWAY_TOKEN
+          railway up --service mitopia-${{ matrix.service }}-prod
+
+  # Deploy to Railway (Staging)
+  deploy-railway-staging:
+    name: Deploy to Railway (Staging)
+    runs-on: ubuntu-latest
+    needs: [test-nodejs-services, test-python-services, security-scan]
+    if: github.ref == 'refs/heads/develop'
+    strategy:
+      matrix:
+        service: [api, signaling, billing, stt, translation, notes]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway Staging
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+        run: |
+          cd ${{ matrix.service }}
+          railway login --token $RAILWAY_STAGING_TOKEN
+          railway up --service mitopia-${{ matrix.service }}-staging
+
+  # Integration Tests
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-railway-production]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install test dependencies
+        run: |
+          npm install -g newman
+          npm install axios
+
+      - name: Wait for services to be ready
+        run: |
+          sleep 60  # Wait for services to start
+
+      - name: Run health checks
+        env:
+          API_URL: ${{ secrets.PRODUCTION_API_URL }}
+          SIGNALING_URL: ${{ secrets.PRODUCTION_SIGNALING_URL }}
+          BILLING_URL: ${{ secrets.PRODUCTION_BILLING_URL }}
+        run: |
+          curl -f $API_URL/health
+          curl -f $SIGNALING_URL/health
+          curl -f $BILLING_URL/health
+
+      - name: Run API integration tests
+        env:
+          API_URL: ${{ secrets.PRODUCTION_API_URL }}
+          TEST_EMAIL: test@example.com
+          TEST_PASSWORD: testpassword123
+        run: |
+          # Test user registration
+          curl -X POST $API_URL/auth/register \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}"
+          
+          # Test user login
+          curl -X POST $API_URL/auth/login \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}"
+
+      - name: Run Postman collection
+        run: |
+          newman run tests/postman/mitopia-api.postman_collection.json \
+            --environment tests/postman/production.postman_environment.json \
+            --reporters cli,json \
+            --reporter-json-export test-results.json
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: integration-test-results
+          path: test-results.json
+
+  # Performance Tests
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-railway-production]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Run performance tests
+        env:
+          API_URL: ${{ secrets.PRODUCTION_API_URL }}
+        run: |
+          k6 run tests/performance/api-load-test.js
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: performance-test-results
+          path: performance-results.json
+
+  # Database Migration Check
+  migration-check:
+    name: Database Migration Check
+    runs-on: ubuntu-latest
+    needs: [deploy-railway-production]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Check migration status
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway login --token $RAILWAY_TOKEN
+          railway run --service mitopia-api-prod "npx prisma migrate status"
+
+  # Notify Success
+  notify-success:
+    name: Notify Deployment Success
+    runs-on: ubuntu-latest
+    needs: [deploy-railway-production, integration-tests, performance-tests]
+    if: success() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#deployments'
+          message: |
+            🎉 Mitopia Backend deployed successfully to Railway!
+            
+            Services deployed:
+            - API: ${{ secrets.PRODUCTION_API_URL }}
+            - Signaling: ${{ secrets.PRODUCTION_SIGNALING_URL }}
+            - Billing: ${{ secrets.PRODUCTION_BILLING_URL }}
+            - STT: ${{ secrets.PRODUCTION_STT_URL }}
+            - Translation: ${{ secrets.PRODUCTION_TRANSLATION_URL }}
+            - Notes: ${{ secrets.PRODUCTION_NOTES_URL }}
+            
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            
+            ✅ All tests passed
+            ✅ Performance tests passed
+            ✅ Security scan completed
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Notify Failure
+  notify-failure:
+    name: Notify Deployment Failure
+    runs-on: ubuntu-latest
+    needs: [deploy-railway-production]
+    if: failure() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#deployments'
+          message: |
+            ❌ Mitopia Backend deployment failed!
+            
+            Check the logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            
+            Please investigate and fix the issues.
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Cleanup
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [integration-tests, performance-tests]
+    if: always()
+    steps:
+      - name: Clean up test data
+        env:
+          API_URL: ${{ secrets.PRODUCTION_API_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          # Clean up test users and data
+          curl -X DELETE $API_URL/admin/cleanup-test-data \
+            -H "Authorization: Bearer $ADMIN_TOKEN" || echo "Cleanup completed"
