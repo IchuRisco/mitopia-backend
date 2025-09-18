@@ -1,0 +1,153 @@
+# Railway Environment Variables for Mitopia Backend
+# Copy and paste these into each service's environment variables section
+
+# =============================================================================
+# API SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+# Service: mitopia-api
+# Path: Settings → Variables
+
+NODE_ENV=production
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+REDIS_URL=${{Redis.REDIS_URL}}
+JWT_SECRET=mitopia_super_secure_jwt_secret_2024_change_this
+OPENAI_API_KEY=sk-your-openai-api-key-here
+STRIPE_SECRET_KEY=sk_live_your-stripe-secret-key-here
+FRONTEND_URL=https://mitopia.netlify.app
+CORS_ORIGINS=https://mitopia.netlify.app
+LOG_LEVEL=info
+PORT=8001
+
+# =============================================================================
+# SIGNALING SERVICE ENVIRONMENT VARIABLES  
+# =============================================================================
+# Service: mitopia-signaling
+# Path: Settings → Variables
+
+NODE_ENV=production
+REDIS_URL=${{Redis.REDIS_URL}}
+API_SERVICE_URL=${{mitopia-api.RAILWAY_PRIVATE_DOMAIN}}
+LOG_LEVEL=info
+PORT=8002
+
+# =============================================================================
+# BILLING SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+# Service: mitopia-billing
+# Path: Settings → Variables
+
+NODE_ENV=production
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+REDIS_URL=${{Redis.REDIS_URL}}
+STRIPE_SECRET_KEY=sk_live_your-stripe-secret-key-here
+STRIPE_WEBHOOK_SECRET=whsec_your-stripe-webhook-secret-here
+API_SERVICE_URL=${{mitopia-api.RAILWAY_PRIVATE_DOMAIN}}
+LOG_LEVEL=info
+PORT=8005
+
+# =============================================================================
+# STT SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+# Service: mitopia-stt
+# Path: Settings → Variables
+
+REDIS_URL=${{Redis.REDIS_URL}}
+API_SERVICE_URL=${{mitopia-api.RAILWAY_PRIVATE_DOMAIN}}
+OPENAI_API_KEY=sk-your-openai-api-key-here
+LOG_LEVEL=info
+PORT=8003
+
+# =============================================================================
+# TRANSLATION SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+# Service: mitopia-translation
+# Path: Settings → Variables
+
+REDIS_URL=${{Redis.REDIS_URL}}
+API_SERVICE_URL=${{mitopia-api.RAILWAY_PRIVATE_DOMAIN}}
+OPENAI_API_KEY=sk-your-openai-api-key-here
+LOG_LEVEL=info
+PORT=8004
+
+# =============================================================================
+# NOTES SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+# Service: mitopia-notes
+# Path: Settings → Variables
+
+REDIS_URL=${{Redis.REDIS_URL}}
+API_SERVICE_URL=${{mitopia-api.RAILWAY_PRIVATE_DOMAIN}}
+OPENAI_API_KEY=sk-your-openai-api-key-here
+LOG_LEVEL=info
+PORT=8006
+
+# =============================================================================
+# INSTRUCTIONS FOR SETTING ENVIRONMENT VARIABLES
+# =============================================================================
+
+# 1. Go to Railway dashboard: https://railway.app
+# 2. Select your "mitopia-backend" project
+# 3. Click on each service (mitopia-api, mitopia-signaling, etc.)
+# 4. Go to Settings → Variables
+# 5. Add the environment variables for that specific service
+# 6. Click "Add" for each variable
+# 7. The service will automatically redeploy with new variables
+
+# =============================================================================
+# GETTING YOUR API KEYS
+# =============================================================================
+
+# OpenAI API Key:
+# 1. Go to https://openai.com/api
+# 2. Sign up or log in
+# 3. Go to API Keys section
+# 4. Click "Create new secret key"
+# 5. Copy the key (starts with sk-)
+# 6. Add to OPENAI_API_KEY in all AI services
+
+# Stripe API Keys:
+# 1. Go to https://stripe.com
+# 2. Create account or log in  
+# 3. Go to Developers → API keys
+# 4. Copy Secret key (sk_live_ for production, sk_test_ for testing)
+# 5. Add to STRIPE_SECRET_KEY in billing and API services
+# 6. Set up webhooks and get webhook secret for STRIPE_WEBHOOK_SECRET
+
+# =============================================================================
+# RAILWAY VARIABLE REFERENCES
+# =============================================================================
+
+# Railway automatically provides these variables:
+# ${{Postgres.DATABASE_URL}} - PostgreSQL connection string
+# ${{Redis.REDIS_URL}} - Redis connection string
+# ${{service-name.RAILWAY_PRIVATE_DOMAIN}} - Internal service URL
+
+# Example service references:
+# ${{mitopia-api.RAILWAY_PRIVATE_DOMAIN}} - API service internal URL
+# ${{mitopia-signaling.RAILWAY_PRIVATE_DOMAIN}} - Signaling service internal URL
+
+# =============================================================================
+# DEPLOYMENT ORDER
+# =============================================================================
+
+# Deploy services in this order:
+# 1. PostgreSQL (database)
+# 2. Redis (cache)
+# 3. mitopia-api (core API)
+# 4. mitopia-signaling (WebRTC signaling)
+# 5. mitopia-billing (payments)
+# 6. mitopia-stt (speech-to-text)
+# 7. mitopia-translation (language translation)
+# 8. mitopia-notes (AI meeting notes)
+
+# =============================================================================
+# HEALTH CHECK URLS
+# =============================================================================
+
+# After deployment, test these URLs:
+# https://mitopia-api-production.up.railway.app/health
+# https://mitopia-signaling-production.up.railway.app/health
+# https://mitopia-billing-production.up.railway.app/health
+# https://mitopia-stt-production.up.railway.app/health
+# https://mitopia-translation-production.up.railway.app/health
+# https://mitopia-notes-production.up.railway.app/health
