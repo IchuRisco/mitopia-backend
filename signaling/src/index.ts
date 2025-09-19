@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { createClient } from 'redis';
 import axios from 'axios';
-import { SignalingMessage, SignalingMessageType } from '@talkflow/shared';
+import { SignalingMessage, SignalingMessageType, RoomState, ParticipantInfo, createSignalingMessage, createParticipantInfo, createRoomState, SignalingError } from './types/shared';
 
 // Load environment variables
 dotenv.config();
