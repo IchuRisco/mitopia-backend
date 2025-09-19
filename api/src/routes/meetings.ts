@@ -3,7 +3,15 @@ import Joi from 'joi';
 import { prisma, rabbitmqChannel } from '../index';
 import { authenticateToken, AuthenticatedRequest, optionalAuth } from '../middleware/auth';
 import { meetingRateLimiter } from '../middleware/rateLimiter';
-import { TalkFlowError, createSuccessResponse, generateRoomCode } from '@talkflow/shared';
+import { createApiResponse, generateRoomCode } from '../types/shared';
+
+// Custom error class
+class TalkFlowError extends Error {
+  constructor(public statusCode: number, message: string, public code?: string) {
+    super(message);
+    this.name = 'TalkFlowError';
+  }
+}
 
 const router = express.Router();
 
@@ -55,7 +63,7 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res, next) 
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json(createSuccessResponse(meetings));
+    res.json(createApiResponse(meetings));
   } catch (error) {
     next(error);
   }
@@ -102,7 +110,7 @@ router.post('/', authenticateToken, meetingRateLimiter, async (req: Authenticate
       }
     });
 
-    res.status(201).json(createSuccessResponse(meeting, 'Meeting created successfully'));
+    res.status(201).json(createApiResponse(meeting, 'Meeting created successfully'));
   } catch (error) {
     next(error);
   }
@@ -161,7 +169,7 @@ router.get('/:meetingId', authenticateToken, async (req: AuthenticatedRequest, r
       throw new TalkFlowError('Meeting not found', 'NOT_FOUND', 404);
     }
 
-    res.json(createSuccessResponse(meeting));
+    res.json(createApiResponse(meeting));
   } catch (error) {
     next(error);
   }
@@ -209,7 +217,7 @@ router.patch('/:meetingId', authenticateToken, async (req: AuthenticatedRequest,
       }
     });
 
-    res.json(createSuccessResponse(updatedMeeting, 'Meeting updated successfully'));
+    res.json(createApiResponse(updatedMeeting, 'Meeting updated successfully'));
   } catch (error) {
     next(error);
   }
@@ -303,7 +311,7 @@ router.post('/join/:roomCode', optionalAuth, async (req: AuthenticatedRequest, r
       });
     }
 
-    res.json(createSuccessResponse({
+    res.json(createApiResponse({
       meeting,
       participant
     }, 'Joined meeting successfully'));
@@ -352,7 +360,7 @@ router.post('/:meetingId/join', authenticateToken, async (req: AuthenticatedRequ
       }
     });
 
-    res.json(createSuccessResponse(participant, 'Joined meeting successfully'));
+    res.json(createApiResponse(participant, 'Joined meeting successfully'));
   } catch (error) {
     next(error);
   }
@@ -425,7 +433,7 @@ router.post('/:meetingId/start', authenticateToken, async (req: AuthenticatedReq
       );
     }
 
-    res.json(createSuccessResponse(updatedMeeting, 'Meeting started successfully'));
+    res.json(createApiResponse(updatedMeeting, 'Meeting started successfully'));
   } catch (error) {
     next(error);
   }
@@ -480,7 +488,7 @@ router.post('/:meetingId/end', authenticateToken, async (req: AuthenticatedReque
       );
     }
 
-    res.json(createSuccessResponse(updatedMeeting, 'Meeting ended successfully'));
+    res.json(createApiResponse(updatedMeeting, 'Meeting ended successfully'));
   } catch (error) {
     next(error);
   }
@@ -543,7 +551,7 @@ router.post('/:meetingId/invite', authenticateToken, async (req: AuthenticatedRe
       console.log(`Invitation sent to ${email || phone} for meeting: ${meeting.title}`);
     }
 
-    res.status(201).json(createSuccessResponse(createdInvitations, 'Invitations sent successfully'));
+    res.status(201).json(createApiResponse(createdInvitations, 'Invitations sent successfully'));
   } catch (error) {
     next(error);
   }

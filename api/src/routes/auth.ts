@@ -5,7 +5,7 @@ import Joi from 'joi';
 import { prisma } from '../index';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { authRateLimiter } from '../middleware/rateLimiter';
-import { TalkFlowError, createSuccessResponse } from '@talkflow/shared';
+import { createApiResponse } from '../types/shared';
 
 const router = express.Router();
 
@@ -100,8 +100,18 @@ router.post('/register', authRateLimiter, async (req, res, next) => {
     // TODO: Send verification code via email/SMS service
 
     console.log(`Verification code for ${email || phone}: ${verificationCode}`);
-
-    res.status(201).json(createSuccessResponse(user, 'User registered successfully. Please verify your email or phone.'));
+    
+    res.status(201).json(createApiResponse(true, {
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isEmailVerified: user.isEmailVerified,
+        isPhoneVerified: user.isPhoneVerified
+      }
+    }, 'User registered successfully. Please verify your email or phone.'));
   } catch (error) {
     next(error);
   }

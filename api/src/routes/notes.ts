@@ -1,7 +1,15 @@
 import express from 'express';
 import { prisma } from '../index';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
-import { TalkFlowError, createSuccessResponse } from '@talkflow/shared';
+import { createApiResponse } from '../types/shared';
+
+// Custom error class
+class TalkFlowError extends Error {
+  constructor(public statusCode: number, message: string, public code?: string) {
+    super(message);
+    this.name = 'TalkFlowError';
+  }
+}
 
 const router = express.Router();
 
@@ -71,10 +79,10 @@ router.get('/meetings/:meetingId', authenticateToken, async (req: AuthenticatedR
 
     if (!notes) {
       // Notes haven't been generated yet
-      return res.json(createSuccessResponse(null, 'Notes are being processed'));
+      return res.json(createApiResponse(null, 'Notes are being processed'));
     }
 
-    res.json(createSuccessResponse(notes));
+    res.json(createApiResponse(notes));
   } catch (error) {
     next(error);
   }
@@ -144,7 +152,7 @@ router.get('/meetings/:meetingId/transcripts', authenticateToken, async (req: Au
       }
     };
 
-    res.json(createSuccessResponse(response));
+    res.json(createApiResponse(response));
   } catch (error) {
     next(error);
   }
@@ -191,7 +199,7 @@ router.get('/meetings/:meetingId/transcripts/speaker/:speakerId', authenticateTo
       orderBy: { timestamp: 'asc' }
     });
 
-    res.json(createSuccessResponse(transcripts));
+    res.json(createApiResponse(transcripts));
   } catch (error) {
     next(error);
   }
@@ -252,7 +260,7 @@ router.get('/meetings/:meetingId/transcripts/search', authenticateToken, async (
       orderBy: { timestamp: 'asc' }
     });
 
-    res.json(createSuccessResponse(transcripts));
+    res.json(createApiResponse(transcripts));
   } catch (error) {
     next(error);
   }
@@ -309,7 +317,7 @@ router.patch('/action-items/:actionItemId', authenticateToken, async (req: Authe
       }
     });
 
-    res.json(createSuccessResponse(updatedActionItem, 'Action item updated successfully'));
+    res.json(createApiResponse(updatedActionItem, 'Action item updated successfully'));
   } catch (error) {
     next(error);
   }
@@ -358,7 +366,7 @@ router.get('/action-items/my', authenticateToken, async (req: AuthenticatedReque
       ]
     });
 
-    res.json(createSuccessResponse(actionItems));
+    res.json(createApiResponse(actionItems));
   } catch (error) {
     next(error);
   }

@@ -2,7 +2,15 @@ import express from 'express';
 import Joi from 'joi';
 import { prisma, rabbitmqChannel } from '../index';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
-import { TalkFlowError, createSuccessResponse } from '@talkflow/shared';
+import { createApiResponse } from '../types/shared';
+
+// Custom error class
+class TalkFlowError extends Error {
+  constructor(public statusCode: number, message: string, public code?: string) {
+    super(message);
+    this.name = 'TalkFlowError';
+  }
+}
 
 const router = express.Router();
 
@@ -96,7 +104,7 @@ router.post('/meetings/:meetingId', authenticateToken, async (req: Authenticated
     // In a real implementation, you'd track export jobs in the database
     const jobId = `export_${meetingId}_${Date.now()}`;
 
-    res.status(202).json(createSuccessResponse({
+    res.status(202).json(createApiResponse({
       jobId,
       status: 'processing',
       estimatedCompletionTime: new Date(Date.now() + 30000).toISOString() // 30 seconds
@@ -124,7 +132,7 @@ router.get('/jobs/:jobId', authenticateToken, async (req: AuthenticatedRequest, 
       completedAt: new Date().toISOString()
     };
 
-    res.json(createSuccessResponse(mockStatus));
+    res.json(createApiResponse(mockStatus));
   } catch (error) {
     next(error);
   }
@@ -218,7 +226,7 @@ router.get('/meetings/:meetingId/summary', authenticateToken, async (req: Authen
         hasAINotes: false
       };
 
-      return res.json(createSuccessResponse(basicSummary));
+      return res.json(createApiResponse(basicSummary));
     }
 
     // Generate rich summary with AI notes
@@ -255,7 +263,7 @@ router.get('/meetings/:meetingId/summary', authenticateToken, async (req: Authen
       hasAINotes: true
     };
 
-    res.json(createSuccessResponse(richSummary));
+    res.json(createApiResponse(richSummary));
   } catch (error) {
     next(error);
   }
@@ -314,7 +322,7 @@ router.get('/options', authenticateToken, async (req: AuthenticatedRequest, res,
       ]
     };
 
-    res.json(createSuccessResponse(options));
+    res.json(createApiResponse(options));
   } catch (error) {
     next(error);
   }

@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../index';
-import { TalkFlowError } from '@talkflow/shared';
+// Custom error class
+class TalkFlowError extends Error {
+  constructor(public statusCode: number, message: string, public code?: string) {
+    super(message);
+    this.name = 'TalkFlowError';
+  }
+}
 
 export interface AuthenticatedRequest extends Request {
   user?: {

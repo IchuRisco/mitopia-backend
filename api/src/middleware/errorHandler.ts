@@ -1,5 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { TalkFlowError } from '@talkflow/shared';
+// Custom error class
+class TalkFlowError extends Error {
+  constructor(public statusCode: number, message: string, public code?: string) {
+    super(message);
+    this.name = 'TalkFlowError';
+  }
+}
 import { Prisma } from '@prisma/client';
 
 export const errorHandler = (
