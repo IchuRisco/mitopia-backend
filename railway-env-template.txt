@@ -1,0 +1,173 @@
+# Railway Environment Variables Template for Mitopia Backend
+# Copy these to each service in Railway dashboard
+
+# =============================================================================
+# API SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+NODE_ENV=production
+PORT=8001
+JWT_SECRET=mitopia_super_secure_jwt_secret_2024_production
+LOG_LEVEL=info
+
+# Database (automatically provided by Railway)
+DATABASE_URL=${DATABASE_URL}
+REDIS_URL=${REDIS_URL}
+
+# API Keys (replace with your actual keys)
+OPENAI_API_KEY=sk-your-openai-api-key-here
+STRIPE_SECRET_KEY=sk_test_your-stripe-secret-key-here
+STRIPE_WEBHOOK_SECRET=whsec_your-stripe-webhook-secret-here
+
+# Service URLs (update after deployment)
+SIGNALING_SERVICE_URL=https://mitopia-signaling-production.up.railway.app
+BILLING_SERVICE_URL=https://mitopia-billing-production.up.railway.app
+STT_SERVICE_URL=https://mitopia-stt-production.up.railway.app
+TRANSLATION_SERVICE_URL=https://mitopia-translation-production.up.railway.app
+NOTES_SERVICE_URL=https://mitopia-notes-production.up.railway.app
+
+# Email Configuration (optional - for notifications)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-gmail-app-password
+
+# SMS Configuration (optional - for phone verification)
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your-twilio-auth-token
+TWILIO_PHONE_NUMBER=+1234567890
+
+# =============================================================================
+# SIGNALING SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+NODE_ENV=production
+PORT=8002
+LOG_LEVEL=info
+
+# Database
+REDIS_URL=${REDIS_URL}
+
+# Service URLs
+API_SERVICE_URL=https://mitopia-api-production.up.railway.app
+
+# WebRTC Configuration
+TURN_SERVER_URL=turn:your-turn-server.com:3478
+TURN_USERNAME=your-turn-username
+TURN_CREDENTIAL=your-turn-password
+STUN_SERVER_URL=stun:stun.l.google.com:19302
+
+# =============================================================================
+# BILLING SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+NODE_ENV=production
+PORT=8005
+LOG_LEVEL=info
+
+# Database
+DATABASE_URL=${DATABASE_URL}
+REDIS_URL=${REDIS_URL}
+
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_test_your-stripe-secret-key-here
+STRIPE_WEBHOOK_SECRET=whsec_your-stripe-webhook-secret-here
+STRIPE_PUBLISHABLE_KEY=pk_test_your-stripe-publishable-key-here
+
+# PayPal Configuration (optional)
+PAYPAL_CLIENT_ID=your-paypal-client-id
+PAYPAL_CLIENT_SECRET=your-paypal-client-secret
+PAYPAL_MODE=sandbox
+
+# =============================================================================
+# STT SERVICE ENVIRONMENT VARIABLES (Python)
+# =============================================================================
+PORT=8003
+LOG_LEVEL=info
+
+# Database
+REDIS_URL=${REDIS_URL}
+
+# Model Configuration
+MODEL_SIZE=base
+LANGUAGE=en
+DEVICE=cpu
+
+# =============================================================================
+# TRANSLATION SERVICE ENVIRONMENT VARIABLES (Python)
+# =============================================================================
+PORT=8004
+LOG_LEVEL=info
+
+# API Keys
+OPENAI_API_KEY=sk-your-openai-api-key-here
+
+# Database
+REDIS_URL=${REDIS_URL}
+
+# Translation Configuration
+DEFAULT_SOURCE_LANGUAGE=auto
+DEFAULT_TARGET_LANGUAGE=en
+MAX_TEXT_LENGTH=5000
+
+# =============================================================================
+# NOTES SERVICE ENVIRONMENT VARIABLES (Python)
+# =============================================================================
+PORT=8006
+LOG_LEVEL=info
+
+# API Keys
+OPENAI_API_KEY=sk-your-openai-api-key-here
+
+# Database
+DATABASE_URL=${DATABASE_URL}
+REDIS_URL=${REDIS_URL}
+
+# AI Configuration
+GPT_MODEL=gpt-3.5-turbo
+MAX_TOKENS=2000
+TEMPERATURE=0.7
+
+# =============================================================================
+# HOW TO GET API KEYS
+# =============================================================================
+
+# OpenAI API Key:
+# 1. Go to https://platform.openai.com/api-keys
+# 2. Create account and add payment method
+# 3. Click "Create new secret key"
+# 4. Copy the key (starts with sk-)
+
+# Stripe API Keys:
+# 1. Go to https://dashboard.stripe.com/apikeys
+# 2. Create account
+# 3. Copy "Secret key" and "Publishable key"
+# 4. For webhooks: Go to Webhooks → Add endpoint
+# 5. Use URL: https://mitopia-billing-production.up.railway.app/webhooks/stripe
+# 6. Copy webhook secret
+
+# Twilio (optional):
+# 1. Go to https://console.twilio.com/
+# 2. Create account and verify phone number
+# 3. Get Account SID and Auth Token from dashboard
+# 4. Buy a phone number for SMS
+
+# TURN Server (optional):
+# 1. Use free STUN servers: stun:stun.l.google.com:19302
+# 2. For TURN: Use services like Xirsys, Twilio, or self-host coturn
+# 3. Or use the default configuration for basic functionality
+
+# =============================================================================
+# DEPLOYMENT CHECKLIST
+# =============================================================================
+
+# ✅ 1. Create Railway project
+# ✅ 2. Add PostgreSQL database
+# ✅ 3. Add Redis database
+# ✅ 4. Deploy API service with above environment variables
+# ✅ 5. Deploy Signaling service with above environment variables
+# ✅ 6. Deploy Billing service with above environment variables
+# ✅ 7. Deploy STT service with above environment variables
+# ✅ 8. Deploy Translation service with above environment variables
+# ✅ 9. Deploy Notes service with above environment variables
+# ✅ 10. Test all health endpoints
+# ✅ 11. Run database migrations
+# ✅ 12. Test API endpoints
+# ✅ 13. Update frontend with service URLs
