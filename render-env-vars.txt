@@ -1,0 +1,227 @@
+# Render Environment Variables for Mitopia Backend
+# Copy and paste these into each service's environment variables section
+
+# =============================================================================
+# API SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+# Service: mitopia-api
+# Path: Service Settings → Environment
+
+NODE_ENV=production
+DATABASE_URL=[Your PostgreSQL Internal Database URL from Render]
+REDIS_URL=[Your Redis URL from Render]
+JWT_SECRET=mitopia_super_secure_jwt_secret_2024_change_this
+OPENAI_API_KEY=sk-your-openai-api-key-here
+STRIPE_SECRET_KEY=sk_live_your-stripe-secret-key-here
+FRONTEND_URL=https://mitopia.netlify.app
+CORS_ORIGINS=https://mitopia.netlify.app
+LOG_LEVEL=info
+PORT=10000
+
+# =============================================================================
+# SIGNALING SERVICE ENVIRONMENT VARIABLES  
+# =============================================================================
+# Service: mitopia-signaling
+# Path: Service Settings → Environment
+
+NODE_ENV=production
+REDIS_URL=[Your Redis URL from Render]
+API_SERVICE_URL=https://mitopia-api.onrender.com
+LOG_LEVEL=info
+PORT=10000
+
+# =============================================================================
+# BILLING SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+# Service: mitopia-billing
+# Path: Service Settings → Environment
+
+NODE_ENV=production
+DATABASE_URL=[Your PostgreSQL Internal Database URL from Render]
+REDIS_URL=[Your Redis URL from Render]
+STRIPE_SECRET_KEY=sk_live_your-stripe-secret-key-here
+STRIPE_WEBHOOK_SECRET=whsec_your-stripe-webhook-secret-here
+API_SERVICE_URL=https://mitopia-api.onrender.com
+LOG_LEVEL=info
+PORT=10000
+
+# =============================================================================
+# STT SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+# Service: mitopia-stt
+# Path: Service Settings → Environment
+
+REDIS_URL=[Your Redis URL from Render]
+API_SERVICE_URL=https://mitopia-api.onrender.com
+OPENAI_API_KEY=sk-your-openai-api-key-here
+LOG_LEVEL=info
+PORT=10000
+
+# =============================================================================
+# TRANSLATION SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+# Service: mitopia-translation
+# Path: Service Settings → Environment
+
+REDIS_URL=[Your Redis URL from Render]
+API_SERVICE_URL=https://mitopia-api.onrender.com
+OPENAI_API_KEY=sk-your-openai-api-key-here
+LOG_LEVEL=info
+PORT=10000
+
+# =============================================================================
+# NOTES SERVICE ENVIRONMENT VARIABLES
+# =============================================================================
+# Service: mitopia-notes
+# Path: Service Settings → Environment
+
+REDIS_URL=[Your Redis URL from Render]
+API_SERVICE_URL=https://mitopia-api.onrender.com
+OPENAI_API_KEY=sk-your-openai-api-key-here
+LOG_LEVEL=info
+PORT=10000
+
+# =============================================================================
+# HOW TO GET DATABASE URLS FROM RENDER
+# =============================================================================
+
+# PostgreSQL Database URL:
+# 1. Go to your PostgreSQL database in Render dashboard
+# 2. Click on "Info" tab
+# 3. Copy "Internal Database URL" (for services)
+# 4. Format: postgresql://username:password@hostname:port/database
+# 5. Use this URL for DATABASE_URL in API and Billing services
+
+# Redis URL:
+# 1. Go to your Redis instance in Render dashboard
+# 2. Click on "Info" tab
+# 3. Copy "Redis URL"
+# 4. Format: redis://hostname:port
+# 5. Use this URL for REDIS_URL in all services
+
+# =============================================================================
+# INSTRUCTIONS FOR SETTING ENVIRONMENT VARIABLES IN RENDER
+# =============================================================================
+
+# 1. Go to Render dashboard: https://dashboard.render.com
+# 2. Click on your service (e.g., mitopia-api)
+# 3. Go to "Settings" tab
+# 4. Scroll down to "Environment Variables" section
+# 5. Click "Add Environment Variable"
+# 6. Enter Key and Value for each variable
+# 7. Click "Save Changes"
+# 8. Service will automatically redeploy with new variables
+
+# =============================================================================
+# GETTING YOUR API KEYS
+# =============================================================================
+
+# OpenAI API Key:
+# 1. Go to https://openai.com/api
+# 2. Sign up or log in
+# 3. Go to API Keys section
+# 4. Click "Create new secret key"
+# 5. Copy the key (starts with sk-)
+# 6. Add to OPENAI_API_KEY in STT, Translation, and Notes services
+
+# Stripe API Keys:
+# 1. Go to https://stripe.com
+# 2. Create account or log in  
+# 3. Go to Developers → API keys
+# 4. Copy Secret key (sk_live_ for production, sk_test_ for testing)
+# 5. Add to STRIPE_SECRET_KEY in API and Billing services
+
+# Stripe Webhook Secret:
+# 1. Go to Stripe Dashboard → Webhooks
+# 2. Create new webhook endpoint
+# 3. URL: https://mitopia-billing.onrender.com/webhooks/stripe
+# 4. Select events: customer.subscription.*, invoice.payment_*
+# 5. Copy webhook secret (starts with whsec_)
+# 6. Add to STRIPE_WEBHOOK_SECRET in Billing service
+
+# =============================================================================
+# RENDER SERVICE URLS
+# =============================================================================
+
+# After deployment, your services will be available at:
+# API: https://mitopia-api.onrender.com
+# Signaling: https://mitopia-signaling.onrender.com
+# Billing: https://mitopia-billing.onrender.com
+# STT: https://mitopia-stt.onrender.com
+# Translation: https://mitopia-translation.onrender.com
+# Notes: https://mitopia-notes.onrender.com
+
+# =============================================================================
+# HEALTH CHECK URLS
+# =============================================================================
+
+# Test these URLs after deployment:
+# https://mitopia-api.onrender.com/health
+# https://mitopia-signaling.onrender.com/health
+# https://mitopia-billing.onrender.com/health
+# https://mitopia-stt.onrender.com/health
+# https://mitopia-translation.onrender.com/health
+# https://mitopia-notes.onrender.com/health
+
+# =============================================================================
+# FRONTEND ENVIRONMENT VARIABLES
+# =============================================================================
+
+# Update your Netlify frontend with these URLs:
+# VITE_API_URL=https://mitopia-api.onrender.com
+# VITE_SIGNALING_URL=https://mitopia-signaling.onrender.com
+# VITE_TRANSLATION_URL=https://mitopia-translation.onrender.com
+# VITE_BILLING_URL=https://mitopia-billing.onrender.com
+
+# =============================================================================
+# DEPLOYMENT ORDER
+# =============================================================================
+
+# Deploy in this order for best results:
+# 1. PostgreSQL database
+# 2. Redis cache
+# 3. API service (core service)
+# 4. Signaling service
+# 5. Billing service
+# 6. STT service
+# 7. Translation service
+# 8. Notes service
+
+# =============================================================================
+# RENDER FREE TIER LIMITS
+# =============================================================================
+
+# Free Tier Includes:
+# - 750 hours/month per web service (enough for 24/7 operation)
+# - PostgreSQL: 1GB storage, 1 month backup retention
+# - Redis: 25MB storage, 30 connections
+# - 100GB bandwidth/month
+# - 500 build minutes/month
+# - Automatic SSL certificates
+# - Custom domains supported
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+# Common Issues:
+
+# Service Won't Start:
+# - Check build logs in Render dashboard
+# - Verify start command is correct
+# - Ensure all environment variables are set
+
+# Database Connection Issues:
+# - Use Internal Database URL for services
+# - Verify database is running and accessible
+# - Check connection string format
+
+# Build Failures:
+# - Check package.json scripts
+# - Verify all dependencies are listed
+# - Check build logs for specific errors
+
+# Memory Issues:
+# - Free tier has 512MB RAM limit
+# - Optimize code for memory usage
+# - Consider upgrading to paid plan if needed
